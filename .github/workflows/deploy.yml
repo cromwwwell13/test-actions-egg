@@ -11,11 +11,11 @@ jobs:
       - name: SSH and Deploy Angular
         run: |
           ssh -o StrictHostKeyChecking=no egg13@192.168.10.20 << 'EOF'
-            # 1. Asegurar que la carpeta existe y entrar
+            # Crear y entrar a la carpeta
             mkdir -p ~/angular_publicaciones
             cd ~/angular_publicaciones
 
-            # 2. Clonar si no existe, o limpiar y actualizar si existe
+            # Limpiar y clonar/actualizar
             if [ ! -d ".git" ]; then
               git clone https://github.com/cromwwwell13/test-actions-egg.git .
             else
@@ -23,13 +23,19 @@ jobs:
               git reset --hard origin/master
             fi
 
-            # 3. Construir la imagen (usando BuildKit para evitar el error de DEPRECATED)
+            # Verificar que el Dockerfile existe antes de seguir
+            if [ ! -f "Dockerfile" ]; then
+              echo "ERROR: No se encuentra el Dockerfile en $(pwd)"
+              exit 1
+            fi
+
+            # Construir la imagen
             DOCKER_BUILDKIT=1 docker build -t angular-app .
 
-            # 4. Limpiar contenedor viejo si existe
+            # Limpiar contenedor viejo e ignorar error si no existe
             docker rm -f angular-cont || true
 
-            # 5. Levantar el nuevo
+            # Lanzar el nuevo contenedor
             docker run -d \
               --name angular-cont \
               --net mis-servicios \
