@@ -11,24 +11,26 @@ jobs:
       - name: SSH and Deploy Angular
         run: |
           ssh -o StrictHostKeyChecking=no egg13@192.168.10.20 << 'EOF'
-            # Ir a la carpeta de Angular
+            # 1. Asegurar que la carpeta existe y entrar
+            mkdir -p ~/angular_publicaciones
             cd ~/angular_publicaciones
 
-            # Si la carpeta está vacía, clonar. Si no, actualizar.
+            # 2. Clonar si no existe, o limpiar y actualizar si existe
             if [ ! -d ".git" ]; then
-              https://github.com/cromwwwell13/test-actions-egg.git .
+              git clone https://github.com/cromwwwell13/test-actions-egg.git .
             else
-              git pull origin main
+              git fetch --all
+              git reset --hard origin/master
             fi
 
-            # Detener contenedor anterior si existe
-            sudo docker rm -f angular-cont || true
+            # 3. Construir la imagen (usando BuildKit para evitar el error de DEPRECATED)
+            DOCKER_BUILDKIT=1 docker build -t angular-app .
 
-            # Construir la imagen de Angular
-            sudo docker build -t angular-app .
+            # 4. Limpiar contenedor viejo si existe
+            docker rm -f angular-cont || true
 
-            # Lanzar el contenedor en un puerto distinto (ejemplo 8080 o 4200)
-            sudo docker run -d \
+            # 5. Levantar el nuevo
+            docker run -d \
               --name angular-cont \
               --net mis-servicios \
               -p 4200:80 \
