@@ -1,0 +1,34 @@
+name: Deploy via Debian Runner
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: self-hosted # <--- Esto le dice que use tu Debian
+    steps:
+      - name: SSH and Deploy to Azure VM
+        run: |
+          ssh egg13@192.168.10.20 << 'EOF'
+            cd ~/net_publicaciones
+            
+            # Limpiar carpetas temporales
+            find . -type d -name "bin" -exec rm -rf {} +
+            find . -type d -name "obj" -exec rm -rf {} +
+            
+            # Actualizar código (Asegúrate de haber hecho git clone antes en la VM)
+            git pull origin main
+            
+            # Reconstruir Docker
+            sudo docker rm -f axelera-descarga-cont || true
+            DOCKER_BUILDKIT=1 sudo docker build -t axelera-api .
+            
+            # Levantar contenedor
+            sudo docker run -d \
+              --name axelera-descarga-cont \
+              --net mis-servicios \
+              -p 5001:8080 \
+              --restart always \
+              axelera-api
+          EOF
