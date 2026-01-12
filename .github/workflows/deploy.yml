@@ -1,0 +1,37 @@
+name: Deploy Angular App
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: SSH and Deploy Angular
+        run: |
+          ssh -o StrictHostKeyChecking=no egg13@192.168.10.20 << 'EOF'
+            # Ir a la carpeta de Angular
+            cd ~/angular_publicaciones
+
+            # Si la carpeta está vacía, clonar. Si no, actualizar.
+            if [ ! -d ".git" ]; then
+              https://github.com/cromwwwell13/test-actions-egg.git .
+            else
+              git pull origin main
+            fi
+
+            # Detener contenedor anterior si existe
+            sudo docker rm -f angular-cont || true
+
+            # Construir la imagen de Angular
+            sudo docker build -t angular-app .
+
+            # Lanzar el contenedor en un puerto distinto (ejemplo 8080 o 4200)
+            sudo docker run -d \
+              --name angular-cont \
+              --net mis-servicios \
+              -p 4200:80 \
+              --restart always \
+              angular-app
+          EOF
