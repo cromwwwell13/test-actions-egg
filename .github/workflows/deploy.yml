@@ -8,38 +8,29 @@ jobs:
   deploy:
     runs-on: self-hosted
     steps:
-      - name: SSH and Deploy Angular
-        run: |
-          ssh -o StrictHostKeyChecking=no egg13@192.168.10.20 << 'EOF'
-            # Crear y entrar a la carpeta
-            mkdir -p ~/angular_publicaciones
-            cd ~/angular_publicaciones
+    - name: SSH and Deploy Angular
+      run: |
+        ssh -o StrictHostKeyChecking=no egg13@192.168.10.20 << 'EOF'
+          cd ~/angular_publicaciones
 
-            # Limpiar y clonar/actualizar
-            if [ ! -d ".git" ]; then
-              git clone https://github.com/cromwwwell13/test-actions-egg.git .
-            else
-              git fetch --all
-              git reset --hard origin/master
-            fi
+          # Actualizar código
+          git fetch --all
+          git reset --hard origin/master
 
-            # Verificar que el Dockerfile existe antes de seguir
-            if [ ! -f "Dockerfile" ]; then
-              echo "ERROR: No se encuentra el Dockerfile en $(pwd)"
-              exit 1
-            fi
+          # 1. Construir la imagen (Sin el prefijo DOCKER_BUILDKIT)
+          # Usamos el builder tradicional que es el que tienes activo
+          docker build -t angular-app .
 
-            # Construir la imagen
-            DOCKER_BUILDKIT=1 docker build -t angular-app .
+          # 2. Detener y borrar contenedor viejo
+          # El || true evita que falle si el contenedor no existe
+          docker rm -f angular-cont || true
 
-            # Limpiar contenedor viejo e ignorar error si no existe
-            docker rm -f angular-cont || true
-
-            # Lanzar el nuevo contenedor
-            docker run -d \
-              --name angular-cont \
-              --net mis-servicios \
-              -p 4200:80 \
-              --restart always \
-              angular-app
-          EOF
+          # 3. Lanzar el nuevo contenedor
+          # El puerto 4200 mapeado al 80 del contenedor (Nginx)
+          docker run -d \
+            --name angular-cont \
+            --net mis-servicios \
+            -p 4200:80 \
+            --restart always \
+            angular-app
+        EOF
